@@ -2,58 +2,69 @@
 
 How I do things, as [Agent Skills](https://agentskills.io). One directory per pattern, one `SKILL.md` each. Works in Claude Code, Codex CLI, Kimi Code CLI, Gemini CLI and anything else that reads the spec.
 
-This is the pattern library half of a two-repo setup. The private `context` repo holds who I am; this public repo holds how I do things. They're separate because the trust boundary is different.
+This is the pattern-library half of a two-repo setup. The private `context` repo holds who I am; this public repo holds how I do things. They're separate because the trust boundary is different.
 
 ## Install
 
 ```sh
 git clone https://github.com/colindomoney/skills ~/skills
-cd ~/skills && just install       # symlinks into ~/.agents/skills, ~/.claude/skills, ~/.gemini/skills
+cd ~/skills
+just install                 # everything
+just install homelab mcp     # only these groups — per-machine install sets
 ```
 
-or, on a machine without `just`:
+Symlinks into `~/.agents/skills` (Codex, Kimi), `~/.claude/skills`, `~/.gemini/skills`. `git pull` is the update. Re-running `just install` with a different group set replaces the previous set.
 
-```sh
-npx skills add colindomoney/skills
-```
-
-Symlinks, so `git pull` is the update.
+On a machine without `just`: `npx skills add colindomoney/skills`.
 
 ## Skills
 
-| Skill | Status | What it does |
-|---|---|---|
-| `context-portfolio-interview` | live | Runs one file of NLW's personal-context-portfolio interview and writes the result |
-| `extract-pattern` | live | Turns something I've just explained (or a repo) into a new skill here |
-| `traefik-static-ingress` | skeleton | Host a service behind Traefik the standard way |
+<!-- skills-table -->
+| Skill | Group | Status | Tags | What it does |
+|---|---|---|---|---|
+| `homelab-traefik-ingress` | homelab | skeleton | homelab, traefik, docker, tls | Put a static site or container behind Traefik on the homelab using the standard static ingress pattern |
+| `context-portfolio-interview` | meta | live | meta, context, nlw | Interview the user to build one file of their personal context portfolio (identity, role-and-responsibilities, current-projects, team-and-relationships, tools-and-systems, communication-style, goals-and-priorities, preferences-and-constraints, domain-knowledge or decision-log) following the NLW protocol, then write portfolio/<name>.md |
+| `extract-pattern` | meta | live | meta, authoring | Capture a how-to pattern that was just explained in conversation, or that lives in a repo, as a new reusable Agent Skill in the skills repo |
+<!-- /skills-table -->
 
-`just skeletons` lists what still needs filling in.
+`just list --tag traefik`, `just list --group homelab`, `just skeletons`. This table is generated: `just readme`.
+
+## Layout and hierarchy
+
+```
+skills/<group>/<group>-<name>/SKILL.md    the pattern; references/ and scripts/ beside it
+skills/_archive/                          dormant skills, out of the install path, still in git
+templates/SKILL.md                        starting point for a new pattern
+scripts/install.sh                        flattening symlink installer with group selection
+scripts/skills.py                         inventory, checks, README generation
+.claude-plugin/                           plugin + marketplace manifests (one plugin per group)
+```
+
+The spec gives you no hierarchy: names must be globally unique and clients scan one flat directory. So hierarchy lives in three places that survive flattening:
+
+1. **Name prefix** = group. `homelab-traefik-ingress`, `mcp-server-scaffold`, `hw-kicad-tamper-mesh`. This is the only taxonomy an agent sees. Prefixes are decided once and never renamed.
+2. **Group directory** = install set. Which skills load on which machine. Nothing else.
+3. **`metadata.tags`** = for humans and `just list`. Agents never read tags during activation; don't expect them to help triggering.
+
+Current groups: `meta` (tooling for this repo and the context portfolio; exempt from the prefix rule), `homelab`. Add groups by making the directory.
 
 ## Adding a pattern
 
-Either `just new <name>` (copies `templates/SKILL.md` into `skills/<name>/`), or, better, in any agent CLI:
+In any agent CLI, right after you've explained the thing:
 
 ```
 /extract-pattern
 ```
 
-right after you've explained the thing. Then `just check` (runs `skillscheck` against the spec and the major clients).
+Or by hand: `just new homelab k3s-bootstrap`, fill in the template, `just check`, `just readme`.
 
 ## Conventions
 
-- Names: lowercase, hyphens, technology first: `traefik-static-ingress`, `mcp-server-scaffold`.
-- Description is an activation trigger, not a summary. Name the technologies and the phrases you'd actually say.
+- Description is an activation trigger, not a summary. Name the technologies and the phrases you'd actually say. It is the only thing the agent sees before deciding to load the skill.
 - Canonical form is real config copied from a working repo, in `references/` if long. Never prose describing config.
+- `metadata.status`: `skeleton` means an agent must not trust it and should say so; `live` means verified against something running; `dormant` means archived.
 - `metadata.last-verified` gets bumped when the pattern is confirmed against something running, not when the file is touched.
-- `metadata.status: skeleton` means an agent must not trust it and should say so.
-- Under 200 lines per `SKILL.md`. Reference material goes in `references/`, deterministic steps in `scripts/`.
+- Under 200 lines per `SKILL.md`. Reference material in `references/`, deterministic steps in `scripts/`.
+- Every installed skill costs ~50 tokens of context per turn in every client (name + description). Past ~100 skills, use install sets or push project-specific patterns into that repo's own `.agents/skills/`.
+- A skill nobody has invoked in six months gets `just archive <name>`.
 - Nothing private. No hostnames you wouldn't put on a slide, no tokens, no internal IPs. Those belong in the `context` repo or in secrets management.
-
-## Layout
-
-```
-skills/<name>/SKILL.md     one per pattern; references/ and scripts/ beside it as needed
-templates/SKILL.md         starting point for a new pattern
-scripts/install.sh         symlink installer
-.claude-plugin/plugin.json makes the repo installable as a Claude Code plugin as well
-```

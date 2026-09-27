@@ -1,15 +1,16 @@
 ---
-name: traefik-static-ingress
+name: homelab-traefik-ingress
 description: Put a static site or container behind Traefik on the homelab using the standard static ingress pattern. Use when adding a new HTTP service to the homelab, editing Traefik routing config, or asked to "put X behind Traefik" or "host this the usual way".
 license: MIT
 metadata:
   author: colindomoney
+  tags: "homelab, traefik, docker, tls"
   version: "0.0.1"
   last-verified: "unset"
   status: skeleton
 ---
 
-# Traefik static ingress
+# Homelab: Traefik static ingress
 
 **This skill is a skeleton.** The canonical config below is a placeholder. Do not use it as ground truth. If you are an agent and this file still says `status: skeleton`, tell the user and ask them to point you at the repo that actually implements the pattern so it can be filled in (see `extract-pattern`).
 

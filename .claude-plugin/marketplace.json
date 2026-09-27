@@ -1,0 +1,9 @@
+{
+  "name": "colindomoney",
+  "owner": { "name": "Colin Domoney" },
+  "metadata": { "description": "Colin Domoney's engineering patterns as Agent Skills, one plugin per group." },
+  "plugins": [
+    { "name": "meta",    "source": "./skills/meta",    "description": "Tooling for the skills repo and the personal context portfolio", "skills": ["./skills/meta/context-portfolio-interview", "./skills/meta/extract-pattern"] },
+    { "name": "homelab", "source": "./skills/homelab", "description": "Homelab patterns: Traefik, Docker, k3s", "skills": ["./skills/homelab/homelab-traefik-ingress"] }
+  ]
+}

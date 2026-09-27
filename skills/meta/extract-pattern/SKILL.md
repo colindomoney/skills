@@ -4,7 +4,10 @@ description: Capture a how-to pattern that was just explained in conversation, o
 license: MIT
 metadata:
   author: colindomoney
+  tags: "meta, authoring"
   version: "0.1.0"
+  status: live
+  last-verified: "2026-09-27"
 ---
 
 # Extract pattern
@@ -18,17 +21,18 @@ The pattern library grows one skill at a time, at the moment the user catches th
 
 ## Procedure
 
-1. Name it. Lowercase, hyphens, technology-first, task-second: `traefik-static-ingress`, `mcp-server-scaffold`, `k3s-bootstrap`. Check the name doesn't already exist under `skills/`. If it does, ask whether to update that skill instead.
-2. Copy `templates/SKILL.md` to `<name>/SKILL.md`.
-3. Fill it from the source material. Rules:
+1. Pick the group. `ls skills/` shows existing groups (e.g. `homelab`, `mcp`, `hw`, `sec`, `write`). Use an existing one unless the pattern clearly needs a new domain; if new, ask the user to confirm the group name, since prefixes are permanent.
+2. Name it `<group>-<thing>`, lowercase, hyphens, technology-first: `homelab-traefik-ingress`, `mcp-server-scaffold`, `hw-kicad-tamper-mesh`. Check it doesn't already exist anywhere under `skills/` (`python3 scripts/skills.py list`). If it does, ask whether to update that skill instead.
+3. Run `just new <group> <thing>` (or copy `templates/SKILL.md` to `skills/<group>/<group>-<thing>/SKILL.md` by hand). Set `metadata.tags` with the group first, then the technologies.
+4. Fill it from the source material. Rules:
    - The **canonical form** is real config or code, copied from the working repo, not rewritten from memory. Anything over ~60 lines goes in `references/` with the actual filename.
    - **Gotchas** are the most valuable section. Ask the user directly: "what has bitten you doing this?" Write down what they say.
    - **Description** is an activation trigger. It must name the technologies and the phrases the user would actually say. It is the only thing an agent sees before deciding to load the skill.
    - Don't pad. Under 200 lines for SKILL.md.
-4. Set `metadata.status: live` and `metadata.last-verified` to today only if the config was copied from something currently running. Otherwise leave `skeleton` and say so.
-5. If `uvx` or `npx` is available, run `uvx skillscheck skills/<name>` and fix what it reports.
-6. Show the user the finished SKILL.md and the description on its own. Ask: "would you have said any of those trigger phrases?" Adjust.
-7. Remind them to run the repo's `just install` (or `npx skills add`) so the new skill is picked up.
+5. Set `metadata.status: live` and `metadata.last-verified` to today only if the config was copied from something currently running. Otherwise leave `skeleton` and say so.
+6. Run `just check` (frontmatter conventions + spec) and `just readme`. Fix what `check` reports.
+7. Show the user the finished SKILL.md and the description on its own. Ask: "would you have said any of those trigger phrases?" Adjust.
+8. Remind them to run the repo's `just install` (or `npx skills add`) so the new skill is picked up.
 
 ## Rules
 

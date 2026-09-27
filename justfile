@@ -1,31 +1,48 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 root := justfile_directory()
+py := "python3 " + root / "scripts/skills.py"
 
 default:
     @just --list
 
-# Symlink all skills into every agent CLI found on this machine
-install:
-    {{root}}/scripts/install.sh
+# Install all groups (or only the named ones: just install homelab mcp) into every agent CLI found
+install *groups:
+    {{root}}/scripts/install.sh {{groups}}
 
 uninstall:
     {{root}}/scripts/install.sh --uninstall
 
-# List skills in this repo
-list:
-    @{{root}}/scripts/install.sh --list | xargs -n1 basename
+# Inventory: just list | just list --group homelab | just list --tag traefik | just list --status skeleton
+list *args:
+    @{{py}} list {{args}}
 
-# Validate every skill against the Agent Skills spec (warnings fail)
+groups:
+    @{{py}} groups
+
+# Validate: frontmatter conventions, then the Agent Skills spec (warnings fail)
 check:
-    uvx skillscheck {{root}}/skills --check spec,quality,disclosure --strict
+    {{py}} check
+    for g in $({{py}} groups); do uvx skillscheck {{root}}/skills/$g --check spec,quality,disclosure --strict; done
 
-# Create a new skill from the template
-new name:
-    test ! -e {{root}}/skills/{{name}} || (echo "{{name}} exists" && exit 1)
-    mkdir -p {{root}}/skills/{{name}}/references
-    sed "s/^name: pattern-name/name: {{name}}/" {{root}}/templates/SKILL.md > {{root}}/skills/{{name}}/SKILL.md
-    @echo "created {{name}}/SKILL.md — now fill it in (or run the extract-pattern skill)"
+# Regenerate the skills table in README.md from frontmatter
+readme:
+    @{{py}} readme
+
+# Create skills/GROUP/GROUP-NAME/SKILL.md from the template
+new group name:
+    test ! -e {{root}}/skills/{{group}}/{{group}}-{{name}} || (echo "exists" && exit 1)
+    mkdir -p {{root}}/skills/{{group}}/{{group}}-{{name}}/references
+    sed -e "s/^name: group-pattern-name/name: {{group}}-{{name}}/" -e 's/tags: "group, technology, technology".*/tags: "{{group}}"/'  \
+        {{root}}/templates/SKILL.md > {{root}}/skills/{{group}}/{{group}}-{{name}}/SKILL.md
+    @echo "created skills/{{group}}/{{group}}-{{name}}/SKILL.md"
+
+# Move a skill to _archive and mark it dormant (out of install path, still in git)
+archive name:
+    src=$(find {{root}}/skills -mindepth 2 -maxdepth 2 -type d -name {{name}} -not -path '*/_archive/*'); test -n "$src" || (echo "not found" && exit 1); \
+    mkdir -p {{root}}/skills/_archive && git mv "$src" {{root}}/skills/_archive/{{name}} && \
+    sed -i.bak 's/^  status: .*/  status: dormant/' {{root}}/skills/_archive/{{name}}/SKILL.md && rm {{root}}/skills/_archive/{{name}}/SKILL.md.bak && \
+    echo "archived {{name}}"
 
 # Skills still marked skeleton
 skeletons:
-    @grep -l '^  status: skeleton' {{root}}/skills/*/SKILL.md | xargs -n1 dirname | xargs -n1 basename || true
+    @{{py}} list --status skeleton

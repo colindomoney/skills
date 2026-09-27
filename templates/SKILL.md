@@ -1,12 +1,13 @@
 ---
-name: pattern-name
+name: group-pattern-name
 description: One sentence, written as an activation trigger not a summary. What task, in what context, makes an agent load this. Name the technologies. Example — "Expose a static site or container behind Traefik using file-provider ingress with automatic TLS. Use when adding a new service to the homelab, when the user says 'put X behind Traefik', or when editing dynamic.yml."
 license: MIT
 metadata:
   author: colindomoney
+  tags: "group, technology, technology"   # first tag = group
   version: "0.1.0"
   last-verified: "YYYY-MM-DD"
-  status: skeleton   # skeleton | live
+  status: skeleton   # skeleton | live | dormant
 ---
 
 # Pattern name

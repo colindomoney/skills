@@ -4,7 +4,10 @@ description: Interview the user to build one file of their personal context port
 license: MIT
 metadata:
   author: colindomoney
+  tags: "meta, context, nlw"
   version: "0.1.0"
+  status: live
+  last-verified: "2026-09-27"
   upstream: https://github.com/nlwhittemore/personal-context-portfolio
 ---
 
