@@ -8,8 +8,6 @@
 #   ~/.gemini/skills   Gemini CLI
 #   ~/.codex/skills    older Codex builds
 #
-
-#
 # Alternative for a fresh machine: `npx skills add <owner>/skills` detects
 # installed clients itself.
 
