@@ -1,0 +1,18 @@
+{
+  "name": "colindomoney-skills",
+  "description": "Colin Domoney's reusable engineering patterns as Agent Skills.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Colin Domoney"
+  },
+  "repository": "https://github.com/colindomoney/skills",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "patterns",
+    "homelab",
+    "security",
+    "api",
+    "mcp"
+  ]
+}
