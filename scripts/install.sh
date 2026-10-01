@@ -39,7 +39,9 @@ uninstall() {
   for d in "${CLIENT_DIRS[@]}"; do
     [[ -d "$d" ]] || continue
     for l in "$d"/*; do
-      [[ -L "$l" && "$(readlink "$l")" == "$ROOT"/* ]] && { rm "$l"; echo "rm     $l"; }
+      # `if`, not `&&`: a false test on the last entry would make the function
+      # return 1 and trip `set -e` at the call site.
+      if [[ -L "$l" && "$(readlink "$l")" == "$ROOT"/* ]]; then rm "$l"; echo "rm     $l"; fi
     done
   done
 }
