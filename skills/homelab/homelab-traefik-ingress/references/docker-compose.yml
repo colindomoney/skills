@@ -1,0 +1,45 @@
+services:
+  site:
+    build:
+      context: .
+      args:
+        PUBLIC_TURNSTILE_SITE_KEY: ${PUBLIC_TURNSTILE_SITE_KEY}
+        PUBLIC_SITE_URL: ${PUBLIC_SITE_URL}
+    # Tagged per commit by scripts/deploy.sh; `latest` is the last healthy deploy.
+    image: example.com:${IMAGE_TAG:-latest}
+    container_name: site
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4321/"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+    env_file: .env
+    # App state volume (optional).
+    volumes:
+      - db_data:/data
+    labels:
+      - "traefik.enable=true"
+      # HTTPS router
+      - "traefik.http.routers.site.rule=Host(`example.com`) || Host(`www.example.com`)"
+      - "traefik.http.routers.site.entrypoints=websecure"
+      - "traefik.http.routers.site.middlewares=site-www-redirect"
+      - "traefik.http.routers.site.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.site.tls.domains[0].main=example.com"
+      - "traefik.http.routers.site.tls.domains[0].sans=www.example.com"
+      - "traefik.http.services.site.loadbalancer.server.port=4321"
+      # HTTP router — redirects to HTTPS
+      - "traefik.http.routers.site-http.rule=Host(`example.com`) || Host(`www.example.com`)"
+      - "traefik.http.routers.site-http.entrypoints=web"
+      # www redirect first so http://www goes straight to https://apex in one hop
+      - "traefik.http.routers.site-http.middlewares=site-www-redirect,site-https-redirect"
+      - "traefik.http.middlewares.site-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.site-https-redirect.redirectscheme.permanent=true"
+      # www -> apex (permanent = 308 in Traefik v3)
+      - "traefik.http.middlewares.site-www-redirect.redirectregex.regex=^https?://www\\.example\\.com/(.*)"
+      - "traefik.http.middlewares.site-www-redirect.redirectregex.replacement=https://example.com/$${1}"
+      - "traefik.http.middlewares.site-www-redirect.redirectregex.permanent=true"
+
+volumes:
+  db_data:

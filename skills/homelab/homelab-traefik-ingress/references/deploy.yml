@@ -1,0 +1,25 @@
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: <runner-label>
+
+    steps:
+      - name: Install Docker CLI
+        run: apk add --no-cache docker-cli docker-cli-buildx docker-cli-compose git nodejs
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write .env
+        run: echo "${{ secrets.ENV_FILE }}" > ${{ github.workspace }}/.env
+
+      - name: Build, smoke-test, deploy, health-gate, prune
+        working-directory: ${{ github.workspace }}
+        env:
+          TAG: ${{ github.sha }}
+        run: TAG=$(echo "$TAG" | cut -c1-12) sh scripts/deploy.sh

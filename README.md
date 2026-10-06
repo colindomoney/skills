@@ -23,7 +23,7 @@ On a machine without `just`: `npx skills add colindomoney/skills`.
 | Skill | Group | Status | Tags | What it does |
 |---|---|---|---|---|
 | `homelab-nm-source-routing` | homelab | live | homelab, networkmanager, iproute2, tailscale, linux | Set up source-based routing (SBR, policy routing) on a dual-homed Linux host with a public wired uplink and a WiFi/home uplink, using a NetworkManager dispatcher script with per-interface ip rules and routing tables, rolled out safely over Tailscale SSH |
-| `homelab-traefik-ingress` | homelab | skeleton | homelab, traefik, docker, tls | Put a static site or container behind Traefik on the homelab using the standard static ingress pattern |
+| `homelab-traefik-ingress` | homelab | live | homelab, traefik, docker, compose, letsencrypt, forgejo | Put a website or container on the public internet behind the homelab Traefik (host-installed Traefik v3, Docker provider, Let's Encrypt HTTP-01) using Compose labels, with HTTP→HTTPS and www→apex redirects, and deploy it via a Forgejo Actions runner on the Docker host |
 | `context-portfolio-interview` | meta | live | meta, context, nlw | Interview the user to build one file of their personal context portfolio (identity, role-and-responsibilities, current-projects, team-and-relationships, tools-and-systems, communication-style, goals-and-priorities, preferences-and-constraints, domain-knowledge or decision-log) following the NLW protocol, then write portfolio/<name>.md |
 | `extract-pattern` | meta | live | meta, authoring | Capture a how-to pattern that was just explained in conversation, or that lives in a repo, as a new reusable Agent Skill in the skills repo |
 <!-- /skills-table -->
