@@ -26,6 +26,7 @@ On a machine without `just`: `npx skills add colindomoney/skills`.
 | `homelab-traefik-ingress` | homelab | live | homelab, traefik, docker, compose, letsencrypt, forgejo | Put a website or container on the public internet behind the homelab Traefik (host-installed Traefik v3, Docker provider, Let's Encrypt HTTP-01) using Compose labels, with HTTP→HTTPS and www→apex redirects, and deploy it via a Forgejo Actions runner on the Docker host |
 | `context-portfolio-interview` | meta | live | meta, context, nlw | Interview the user to build one file of their personal context portfolio (identity, role-and-responsibilities, current-projects, team-and-relationships, tools-and-systems, communication-style, goals-and-priorities, preferences-and-constraints, domain-knowledge or decision-log) following the NLW protocol, then write portfolio/<name>.md |
 | `extract-pattern` | meta | live | meta, authoring | Capture a how-to pattern that was just explained in conversation, or that lives in a repo, as a new reusable Agent Skill in the skills repo |
+| `research-crawl4ai-macos-keychain` | research | live | research, crawl4ai, hyperresearch, macos, keychain | Stop hyperresearch / Crawl4AI fetches from triggering repeated macOS keychain prompts ("Google Chrome for Testing wants to use your confidential information stored in Chromium Safe Storage") and ":9222" CDP connection errors |
 <!-- /skills-table -->
 
 `just list --tag traefik`, `just list --group homelab`, `just skeletons`. This table is generated: `just readme`.
