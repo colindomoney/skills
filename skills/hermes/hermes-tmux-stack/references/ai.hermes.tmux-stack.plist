@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>ai.hermes.tmux-stack</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/osascript</string>
+        <string>-e</string>
+        <string>tell application "Terminal" to do script "exec /bin/zsh -ilc /Users/colind/.hermes/scripts/tmux-login-bootstrap.sh"</string>
+    </array>
+
+    <!-- Terminal.app needs an interactive GUI login session. -->
+    <key>LimitLoadToSessionType</key>
+    <string>Aqua</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- One shot only. The tmux supervisor is idempotent and tmux owns the
+         long-lived processes; relaunching osascript would create windows. -->
+    <key>KeepAlive</key>
+    <false/>
+
+    <key>ProcessType</key>
+    <string>Interactive</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/colind/.hermes/logs/tmux-login-launchagent.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/colind/.hermes/logs/tmux-login-launchagent.error.log</string>
+</dict>
+</plist>
