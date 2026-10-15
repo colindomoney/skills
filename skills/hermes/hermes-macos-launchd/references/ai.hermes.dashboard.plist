@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>ai.hermes.dashboard</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/colind/.hermes/hermes-agent/.hermes/bin/hermes</string>
+        <string>dashboard</string>
+        <string>--no-open</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/colind/.hermes</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/colind/.hermes/hermes-agent/.hermes/bin:/Users/colind/.hermes/node/bin:/Users/colind/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HERMES_HOME</key>
+        <string>/Users/colind/.hermes</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+    <key>StandardInPath</key>
+    <string>/dev/null</string>
+    <key>StandardOutPath</key>
+    <string>/Users/colind/.hermes/logs/dashboard.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/colind/.hermes/logs/dashboard.error.log</string>
+</dict>
+</plist>

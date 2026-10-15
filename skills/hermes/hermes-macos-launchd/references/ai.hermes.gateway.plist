@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>ai.hermes.gateway</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/osascript</string>
+        <string>-l</string>
+        <string>JavaScript</string>
+        <string>-e</string>
+        <string>ObjC.import(&quot;stdlib&quot;); const status=$.system(&quot;exec /Users/colind/.hermes/hermes-agent/.hermes/bin/hermes --run-module hermes_cli.stderr_timestamp --error-log /Users/colind/.hermes/logs/gateway.error.log -- /Users/colind/.hermes/hermes-agent/.hermes/bin/hermes gateway run --external-supervisor &gt;&gt; /Users/colind/.hermes/logs/gateway.log 2&gt;&gt; /Users/colind/.hermes/logs/gateway.error.log&quot;); const signal=status &amp; 127; $.exit(status === -1 ? 1 : signal === 0 ? (status &gt;&gt; 8) &amp; 255 : 128 + signal);</string>
+    </array>
+    
+    <key>WorkingDirectory</key>
+    <string>/Users/colind/.hermes</string>
+    
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/colind/.hermes/hermes-agent/node_modules/.bin:/Users/colind/.hermes/node/bin:/Users/colind/.hermes/tools/node-26.7.0-darwin-arm64/bin:/Users/colind/.hermes/tools/npm-12.0.2-darwin-arm64/bin:/Users/colind/.hermes/hermes-agent/.hermes/bin:/Users/colind/.hermes/installs/198ea7c746b8f93b/environments/ef1a02960092446ca79160263fb7dfef/venv/bin:/Users/colind/.hermes/tools/python-3.14.7+20260901-darwin-arm64/bin:/Users/colind/.hermes/tools/ripgrep-15.2.0-darwin-arm64:/Users/colind/.hermes/tools/ffmpeg-9.0.1-darwin-arm64:/Users/colind/.nvm/versions/node/v24.14.0/bin:/Users/colind/.kimi-code/bin:/Users/colind/.grok/bin:/Users/colind/.cargo/bin:/Library/Frameworks/Python.framework/Versions/3.12/bin:/Users/colind/.local/share/zinit/polaris/bin:/Users/colind/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Library/Apple/usr/bin:/Library/TeX/texbin:/usr/local/share/dotnet:~/.dotnet/tools:/usr/local/go/bin:/opt/homebrew/bin:/opt/podman/bin:/Users/colind/.docker/bin:/Users/colind/Library/Application Support/JetBrains/Toolbox/scripts:/Applications/Obsidian.app/Contents/MacOS:/Users/colind/bin:/opt/homebrew/sbin:/usr/local/sbin:/opt/homebrew/opt/postgresql@16/bin:/opt/homebrew/opt/ruby/bin:/Users/colind/development/flutter/bin:/Users/colind/.lando/bin:/Users/colind/.cabal/bin:/Users/colind/.krew/bin:/Users/colind/.cache/lm-studio/bin:/Users/colind/.opencode/bin:/Applications/kitty.app/Contents/MacOS:/Users/colind/develop/flutter/bin:/Users/colind/.bun/bin</string>
+
+        <key>HERMES_HOME</key>
+        <string>/Users/colind/.hermes</string>
+        <key>HERMES_SUPERVISED_CHILD</key>
+        <string>1</string>
+    </dict>
+
+    <key>LimitLoadToSessionType</key>
+    <array>
+        <string>Aqua</string>
+        <string>Background</string>
+    </array>
+    
+    <key>RunAtLoad</key>
+    <true/>
+    
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <!-- SuccessfulExit=false parks a clean stop (exit 0), including gateway
+         EX_CONFIG 78 after stderr_timestamp maps it to 0 — launchd cannot
+         honor RestartPreventExitStatus, and KeepAlive=true respawned token
+         collisions forever (#89477). Exit 75 and crashes still relaunch.
+         ThrottleInterval raises launchd's default 10s minimum respawn interval
+         to 30s so a crash-looping gateway can't hammer launchd into a rapid
+         respawn storm; ExitTimeOut is the graceful-drain headroom before
+         launchd escalates from SIGTERM to SIGKILL on stop. The per-user
+         (gui) launchd domain clamps it to 60s regardless of what is written
+         here, so 60 is the most a LaunchAgent can get; the gateway reads
+         the live value at boot and fits its signal-driven drain inside it
+         (gateway.restart.read_launchd_exit_timeout_s). -->
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>ExitTimeOut</key>
+    <integer>60</integer>
+
+    <key>SoftResourceLimits</key>
+    <dict>
+        <key>NumberOfFiles</key>
+        <integer>4096</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/colind/.hermes/logs/gateway.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>/Users/colind/.hermes/logs/gateway.error.log</string>
+</dict>
+</plist>
