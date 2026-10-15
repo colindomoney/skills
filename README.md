@@ -22,6 +22,7 @@ On a machine without `just`: `npx skills add colindomoney/skills`.
 <!-- skills-table -->
 | Skill | Group | Status | Tags | What it does |
 |---|---|---|---|---|
+| `forgejo-etckeeper` | forgejo | live | forgejo, etckeeper, git, debian, ssh, systemd | Version /etc with etckeeper on a Debian/Ubuntu host and auto-push every commit (apt runs, daily autocommit, manual etckeeper commit) to a private per-host repo on Forgejo, using a write-enabled SSH deploy key or a repo-scoped token |
 | `hermes-lmstudio-provider` | hermes | live | hermes, lmstudio, llm, local-models, gguf, mlx | Add a local LM Studio server (OpenAI-compatible, 127.0.0.1:1234) as a selectable provider in Hermes Agent so its models show in the dashboard/web UI model picker, including reloading the LM Studio model at 64k context and restarting the Hermes dashboard |
 | `hermes-macos-launchd` | hermes | live | hermes, macos, launchd, launchagent, plist | Run the Hermes Agent dashboard (web UI, 127.0.0.1:9119) as a per-user launchd LaunchAgent on macOS so it starts at login and restarts on crash, optionally alongside the messaging gateway (127.0.0.1:8642) |
 | `hermes-tmux-stack` | hermes | live | hermes, tmux, macos, launchd, local-network-privacy, zsh, nvm | Run, restart, upgrade or debug the Hermes Agent service stack on macOS (gateway :8642, dashboard :9119, Paperclip :3100, Obsidian ob sync), with one tmux session per service, launched at login by the ai.hermes.tmux-stack LaunchAgent through Terminal.app, via tmux-respawn-all.sh and hermes-upgrade.sh |
