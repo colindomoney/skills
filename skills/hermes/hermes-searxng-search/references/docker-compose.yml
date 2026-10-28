@@ -1,0 +1,15 @@
+services:
+  searxng:
+    image: ghcr.io/searxng/searxng:latest
+    ports:
+      - "127.0.0.1:8089:8080"
+    volumes:
+      - ./config:/etc/searxng
+      - searxng-cache:/var/cache/searxng
+    environment:
+      - SEARXNG_SECRET=${SEARXNG_SECRET}
+      - SEARXNG_BASE_URL=http://127.0.0.1:8089/
+    restart: always
+
+volumes:
+  searxng-cache:
