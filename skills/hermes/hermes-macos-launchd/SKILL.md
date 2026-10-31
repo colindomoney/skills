@@ -1,116 +1,141 @@
 ---
 name: hermes-macos-launchd
-description: Run the Hermes Agent dashboard (web UI, 127.0.0.1:9119) as a per-user launchd LaunchAgent on macOS so it starts at login and restarts on crash, optionally alongside the messaging gateway (127.0.0.1:8642). Asks which of the two to set up. Use when installing, inspecting, restarting or debugging the Hermes dashboard or gateway on a Mac, when asked "how is Hermes dashboard installed", "make the Hermes dashboard start at login", "run Hermes as a service on macOS", or when editing ai.hermes.dashboard.plist or ai.hermes.gateway.plist in ~/Library/LaunchAgents.
+description: Install, run, inspect, clean up and debug a local Hermes Agent on a Mac, where the dashboard (127.0.0.1:9119) and gateway run as per-user launchd LaunchAgents (ai.hermes.dashboard, ai.hermes.gateway), not the central hermes host's tmux stack. Use when asked "what's Hermes running", "how is the dashboard/gateway launched", "restart Hermes on my Mac", "make the dashboard start at login", "Hermes is down / won't start", "clean up Hermes config", "remove a platform", "stale gateway state", after `hermes update` leaves plists pointing at old ~/.hermes/tools python/node, or when editing ai.hermes.dashboard.plist or ai.hermes.gateway.plist in ~/Library/LaunchAgents.
 license: MIT
 metadata:
   author: colindomoney
-  tags: "hermes, macos, launchd, launchagent, plist"
-  version: "0.1.0"
-  last-verified: "2026-10-15"
+  tags: "hermes, macos, launchd, launchagent, plist, debugging"
+  version: "0.2.0"
+  last-verified: "2026-10-31"
   status: live
 ---
 
-# Hermes on macOS: dashboard (and gateway) as LaunchAgents
+# Hermes on a local Mac: launchd install, operations and debugging
 
-The main job here is the dashboard. The gateway is optional and only set up if the user asks for it. Hermes runs two long-lived processes on a Mac, and each one is a separate per-user LaunchAgent in the `gui/<uid>` domain. The **gateway** has an installer, `hermes gateway install`, that writes and loads `ai.hermes.gateway.plist`. The **dashboard** has no installer because `hermes dashboard` has no `install` subcommand, so its plist, `ai.hermes.dashboard.plist`, is written by hand. They are LaunchAgents rather than LaunchDaemons because Hermes lives in `~/.hermes` and runs as the logged-in user.
+A local Mac install of Hermes runs as up to three process trees, all as the logged-in user. The **gateway** and the **dashboard** are separate LaunchAgents in the `gui/<uid>` domain. The **Hermes Desktop app** spawns its own backend. `hermes gateway install` writes the gateway plist. `hermes dashboard` has no installer, so the dashboard plist is written by hand. These are LaunchAgents rather than LaunchDaemons because everything lives in `~/.hermes`.
 
 ## When to use / when not to
 
-- Use when: Hermes is installed under `~/.hermes` on macOS and you want the dashboard and/or gateway always running.
-- Don't use when: you're on Linux. There, `hermes gateway install` generates a systemd unit, and the dashboard needs a hand-written unit instead.
-- Don't use when: you only need the dashboard for one session. Run `hermes dashboard` in a terminal instead.
+- Use when: `~/.hermes` is on this Mac and `launchctl list | grep ai.hermes` shows `ai.hermes.dashboard` and/or `ai.hermes.gateway`.
+- Don't use when: `~/Deployments/tmux/tmux-respawn-all.sh` exists or `ai.hermes.tmux-stack` is loaded. That is the central host, so use `hermes-tmux-stack`.
+- Don't use when: you're on Linux. `hermes gateway install` writes a systemd unit there.
+- Don't use when: it's model or provider config. Use `hermes-lmstudio-provider`.
 
-## The canonical form
+## First: status
 
-Both plists below were copied from a working Mac. Before reusing them, replace `/Users/colind` with the target user's home.
+Run `scripts/hermes-status.sh`. It is read-only and prints:
+- the host, with a warning if this is the tmux host;
+- the Hermes version;
+- the launchd jobs (state, runs, last exit);
+- the gateway PID from `gateway_state.json`, and whether it is alive;
+- persisted platform entries;
+- Hermes Python listeners, labelled `gateway run`, `dashboard` or `serve`;
+- toolchain drift in the plists.
 
-- `references/ai.hermes.dashboard.plist`: hand-written. The key parts:
-  ```xml
-  <key>Label</key><string>ai.hermes.dashboard</string>
-  <key>ProgramArguments</key>
-  <array>
-      <string>/Users/colind/.hermes/hermes-agent/.hermes/bin/hermes</string>
-      <string>dashboard</string>
-      <string>--no-open</string>
-  </array>
-  <key>WorkingDirectory</key><string>/Users/colind/.hermes</string>
-  <key>EnvironmentVariables</key>
-  <dict>
-      <key>PATH</key>
-      <string>/Users/colind/.hermes/hermes-agent/.hermes/bin:/Users/colind/.hermes/node/bin:/Users/colind/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
-      <key>HERMES_HOME</key><string>/Users/colind/.hermes</string>
-  </dict>
-  <key>RunAtLoad</key><true/>
-  <key>KeepAlive</key><true/>
-  <key>ThrottleInterval</key><integer>30</integer>
-  <key>StandardInPath</key><string>/dev/null</string>
-  <key>StandardOutPath</key><string>/Users/colind/.hermes/logs/dashboard.log</string>
-  <key>StandardErrorPath</key><string>/Users/colind/.hermes/logs/dashboard.error.log</string>
-  ```
-- `references/ai.hermes.gateway.plist`: generated by `hermes gateway install`. Don't hand-write or hand-edit it; regenerate it instead. It is kept here as a reference for what correct looks like. It:
-  - wraps `hermes gateway run --external-supervisor` in `osascript -l JavaScript` so the output redirection and exit-status mapping happen in one process;
-  - sets `HERMES_SUPERVISED_CHILD=1`;
-  - uses `KeepAlive` with `SuccessfulExit=false`, plus `ThrottleInterval` 30, `ExitTimeOut` 60 and `NumberOfFiles` 4096;
-  - sets `LimitLoadToSessionType` to Aqua and Background.
+`HERMES_LAUNCHAGENTS=<dir>` checks plists in another directory, for example backups.
 
-Binary path: `~/.hermes/hermes-agent/.hermes/bin/hermes` is the shim that launches Hermes' managed Python under `~/.hermes/tools/python-*`. Point launchd at the shim, never at the Python interpreter.
+A healthy install has both jobs `running`, :9119 answering 200, and no drift lines. The gateway listens on :8642 only if a messaging platform or `api_server` is enabled. With none enabled it logs "No messaging platforms enabled", stays up for cron, the kanban dispatcher and housekeeping, and listens only on a random loopback port.
 
-## Steps
+## Process model
 
-0. Ask the user which to set up: **dashboard**, **gateway**, or **both**. Don't assume they want the gateway. Then do only the matching section(s) below.
+| What | Launched by | Process | Port |
+|---|---|---|---|
+| Gateway | `ai.hermes.gateway` → `osascript -l JavaScript` → `hermes --run-module hermes_cli.stderr_timestamp -- hermes gateway run --external-supervisor` | `python3 -I -c ... gateway run --external-supervisor` | :8642 if a platform is on, plus a random loopback port |
+| Dashboard | `ai.hermes.dashboard` → `hermes dashboard --host 127.0.0.1 --port 9119 --no-open --skip-build` | `python3 -I -c ... dashboard ...` | 9119 |
+| Desktop backend | `/Applications/Hermes.app` (launchd label `application.com.nousresearch.hermes.*`) | `python3 -I -c ... serve --host 127.0.0.1 --port 0` | random |
 
-### Dashboard
+- **Launcher:** `~/.hermes/hermes-agent/.hermes/bin/hermes` is a shim that execs the managed Python in `~/.hermes/tools/python-<ver>/` with an inline `-c` bootstrap. Point launchd at the shim, never at a Python.
+- **MCP servers** run as children of the gateway, alongside `tools/mcp_death_supervisor.py`. They use whatever `command:` is set under `mcp_servers` in `config.yaml`. A venv's base Python, for example the Framework 3.12, is set when the venv is created, not by PATH.
 
-1. Copy `references/ai.hermes.dashboard.plist` to `~/Library/LaunchAgents/` and replace the home path. Add `--port`/`--host` to `ProgramArguments` only if the defaults (`9119`, `127.0.0.1`) are wrong for you.
-2. Check the plist: `plutil -lint ~/Library/LaunchAgents/ai.hermes.dashboard.plist`
-3. Load it: `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ai.hermes.dashboard.plist`
-4. To restart it after changing config: `launchctl kickstart -k gui/$(id -u)/ai.hermes.dashboard`
-5. To remove it: `launchctl bootout gui/$(id -u)/ai.hermes.dashboard`, then delete the plist.
+## Files
 
-### Gateway
+| Path | What |
+|---|---|
+| `~/.hermes/config.yaml` | Main config. Platform settings appear twice: under `display.platforms.<name>` (display) and under `platforms.<name>` (enable and extras). |
+| `~/.hermes/.env` | Secrets and platform env vars, for example `BUZZ_*` and `TELEGRAM_*`. |
+| `~/.hermes/gateway_state.json` | The gateway's runtime record: pid, state, version, and a status entry for each platform. |
+| `~/.hermes/logs/{gateway,dashboard}{,.error}.log` | launchd stdout and stderr. The gateway stamps its stderr with timestamps. |
+| `~/.hermes/tools/{python,node}-<ver>-darwin-arm64/` | Managed toolchains. `hermes update` adds new versions and leaves the old ones in place. |
+| `~/Library/LaunchAgents/ai.hermes.{dashboard,gateway}.plist` | The jobs. See `references/`. |
 
-1. Run `hermes gateway install`, which writes and loads the plist. Check it with `hermes gateway status`.
-2. To restart it: `hermes gateway restart`. Don't use `kickstart` for the gateway (see Gotchas).
-3. To remove it: `hermes gateway uninstall`.
+## Install
+
+Ask which to set up: **dashboard**, **gateway** or **both**. Don't assume the gateway.
+
+**Dashboard:**
+1. Copy `references/ai.hermes.dashboard.plist` to `~/Library/LaunchAgents/`. Replace `/Users/colind`, and set the PATH tool directories to the newest `~/.hermes/tools/*` versions.
+2. `plutil -lint` the plist, then `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ai.hermes.dashboard.plist`.
+3. To remove it: `launchctl bootout gui/$(id -u)/ai.hermes.dashboard`, then delete the plist.
+
+**Gateway:**
+1. Run `hermes gateway install`, then check with `hermes gateway status`.
+2. To remove it: `hermes gateway uninstall`.
+
+## Operate
+
+| Task | Command |
+|---|---|
+| Restart the dashboard | `launchctl kickstart -k gui/$(id -u)/ai.hermes.dashboard` |
+| Restart the gateway | `hermes gateway restart` (SIGUSR1 → graceful drain → launchd relaunches on exit 75) |
+| Pick up an edited plist | `launchctl bootout gui/$(id -u)/ai.hermes.<job>`, then `launchctl bootstrap gui/$(id -u) <plist>`. `kickstart` does not re-read the plist. |
+| Stop the gateway for good | `launchctl bootout gui/$(id -u)/ai.hermes.gateway`. Then wait on the pid from `gateway_state.json` (`kill -0 $pid`) before touching its state. |
+
+### After `hermes update`: toolchain drift
+
+Both plists pin versioned `~/.hermes/tools/python-*` and `node-*` directories in `PATH`. An update installs newer ones and leaves the plists pointing at the old ones. The shim still finds the right Python, so nothing breaks straight away. Anything the services shell out to by PATH gets the old Node or Python, and if the old directory is deleted, those calls fail.
+
+To fix it:
+1. Back up the plists.
+2. Repoint them:
+   ```bash
+   sed -i '' -e 's/python-<old>/python-<new>/g' -e 's/node-<old>-darwin-arm64/node-<new>-darwin-arm64/g' \
+     ~/Library/LaunchAgents/ai.hermes.{dashboard,gateway}.plist
+   ```
+3. `plutil -lint` both, then bootout and bootstrap each job.
+4. Re-run `hermes-status.sh`. Delete the old `tools/` directories only once nothing references them.
+
+Rerunning `hermes gateway install --force` would also rewrite the gateway plist, but it captures the PATH of the shell it runs in. Run it from a normal Terminal login shell, not from an agent's shell. It wasn't used for this fix.
+
+### Remove a messaging platform (e.g. Buzz)
+
+1. Back up `config.yaml`, `.env` and `gateway_state.json`.
+2. Delete `display.platforms.<name>` and `platforms.<name>` from `config.yaml`. If that leaves `platforms:` empty, delete the key too. Check the file still parses with `python3 -c "import yaml; yaml.safe_load(open(...))"`.
+3. Delete the platform's lines from `.env`, including commented-out ones, which can still contain keys.
+4. Clear its entry from `gateway_state.json` while the gateway is stopped (see Gotchas):
+   ```bash
+   old=$(python3 -I -c "import json;print(json.load(open('$HOME/.hermes/gateway_state.json'))['pid'])")
+   launchctl bootout gui/$(id -u)/ai.hermes.gateway
+   while kill -0 $old 2>/dev/null; do sleep 2; done
+   python3 -I -c "import json,os;p=os.path.expanduser('~/.hermes/gateway_state.json');d=json.load(open(p));d['platforms'].pop('<name>',None);json.dump(d,open(p+'.tmp','w'));os.replace(p+'.tmp',p)"
+   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ai.hermes.gateway.plist
+   ```
 
 ## Gotchas
 
-- launchd does not inherit your shell `PATH`. The dashboard plist sets `PATH` explicitly, with Hermes' own `bin` and `node/bin` first. Without that, tools Hermes shells out to are not found.
-- The gateway's `KeepAlive` is `{SuccessfulExit=false}`, not `true`. A clean exit (0, which includes EX_CONFIG 78 after `stderr_timestamp` maps it) parks the job. Exit 75 and crashes relaunch it. With `KeepAlive=true`, a token collision respawned forever (upstream #89477). Don't "fix" it to `true`.
-- The `gui/<uid>` domain caps `ExitTimeOut` at 60s, whatever the plist says. The gateway reads the live value at boot and fits its drain inside it.
-- For a gateway under an external supervisor, `hermes gateway restart` hands control back via SIGUSR1 and waits for a fresh supervised PID. Stopping it and running `gateway run` in the foreground stamps the CLI's PID and wedges every later KeepAlive respawn (upstream #110637).
-- A non-zero last exit in `launchctl list` isn't necessarily a fault. -15 means the job was SIGTERMed, for example by a kickstart or `hermes update`. 75 means the gateway asked to be relaunched.
-- **A stuck or dead dashboard process can keep holding port 9119.** The launchd job then can't bind the port: with `KeepAlive=true` it crash-loops every 30s and `dashboard.error.log` fills with bind errors, while the browser hangs or shows an old instance. Kicking the job doesn't help because the old process isn't launchd's. To clear it:
-  ```bash
-  launchctl bootout gui/$(id -u)/ai.hermes.dashboard        # stop launchd respawning first
-  lsof -nP -iTCP:9119 -sTCP:LISTEN                           # find what still holds the port
-  kill $(lsof -t -iTCP:9119 -sTCP:LISTEN)                     # kill -9 if it ignores SIGTERM
-  lsof -nP -iTCP:9119 -sTCP:LISTEN                           # must print nothing
-  launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ai.hermes.dashboard.plist
-  ```
-  Check the PID with `ps -p <pid> -o command` before killing it, to make sure it's a Hermes `dashboard` process and not something else on 9119.
+- **`pgrep -f 'hermes_cli/main.py gateway'` matches nothing.** The process argv is `python3 -I -c <bootstrap> gateway run ...`. `gateway_state.json` lists `hermes_cli/main.py` in its `argv`, but that is not what `ps` shows. Take the pid from `gateway_state.json`, or the owner of the port.
+- **Platform status in `gateway_state.json` persists across restarts and config removal.** At start the gateway loads the existing file and merges into it in memory. If you edit the file while the old gateway is still draining, it writes its copy back on exit. So bootout, wait on the real pid, then edit. A Buzz entry from 5 Sep 2026 kept showing as `retrying` / `needs_attention` for weeks after Buzz was disabled.
+- **No :8642 doesn't mean the gateway is down.** With no platforms enabled it doesn't open the API port. Check `gateway_state` and the log line "Gateway will continue running for cron job execution".
+- **The Desktop app runs its own `hermes serve` backend**, alongside the gateway. It can also run its own cron scheduler (seen on the central host), so a job may fire from both, and a Desktop rerun can look healthy while the gateway is broken. Desktop launching often coincides with SIGUSR1 gateway restarts in `gateway.log`.
+- **launchd doesn't inherit your shell PATH.** Both plists set PATH explicitly. The gateway's is the installing shell's whole PATH, frozen, including nvm, `/Library/Frameworks` Python and so on.
+- **The gateway's KeepAlive is `{SuccessfulExit=false}`, not `true`.** A clean exit (0, which includes EX_CONFIG 78 after `stderr_timestamp` maps it) parks the job, while exit 75 and crashes relaunch it. `true` respawned a token collision forever (upstream #89477). The live dashboard plist uses the same form.
+- **`ExitTimeOut` is capped at 60s in `gui/<uid>`.** The gateway logs `restart_drain_timeout=180s exceeds the live launchd exit timeout` and drains for 50s at most, so long turns are cut off on stop.
+- **Don't stop a supervised gateway and run `gateway run` in the foreground.** It stamps the CLI's PID and wedges later KeepAlive respawns (upstream #110637). Use `hermes gateway restart`.
+- **The last exit code in `launchctl list` is often benign.** -15 means it was SIGTERMed (kickstart, bootout, update). 75 means the gateway asked to be relaunched.
+- **`--skip-build` serves the existing `hermes_cli/web_dist`.** After an update that changes the web UI, run a dashboard build, or start once without `--skip-build`, or the old UI stays up.
+- **A stale process can hold :9119.** The job then crash-loops on bind errors every 30s (`ThrottleInterval`), and kickstart doesn't help. Bootout, check the owner with `lsof -nP -iTCP:9119 -sTCP:LISTEN` and `ps -p <pid> -o command`, kill it if it's a Hermes `dashboard`, then bootstrap.
 
 ## Verify
 
-Dashboard:
-
 ```bash
-launchctl print gui/$(id -u)/ai.hermes.dashboard | grep -E 'state|pid|runs'   # state = running
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:9119/                 # 200
-tail -n 20 ~/.hermes/logs/dashboard.error.log
-```
-
-Gateway:
-
-```bash
-hermes gateway status
-lsof -nP -iTCP:8642 -sTCP:LISTEN
-tail -n 20 ~/.hermes/logs/gateway.error.log
+scripts/hermes-status.sh                                        # both jobs running, gateway pid alive, no drift lines
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:9119/ # 200
+tail -n 20 ~/.hermes/logs/gateway.error.log ~/.hermes/logs/dashboard.error.log
 ```
 
 ## References
 
-- `references/ai.hermes.dashboard.plist`: the full hand-written dashboard agent.
-- `references/ai.hermes.gateway.plist`: the generated gateway agent, for comparison only. Its `PATH` is the installing user's full shell `PATH` at install time.
-- Hermes source: `~/.hermes/hermes-agent/hermes_cli/gateway_launchd.py` (launchd install and reload) and `hermes_cli/AGENTS.md` (supervised-restart rules).
-- Related: [[hermes-lmstudio-provider]], which restarts the dashboard after config changes.
+- `scripts/hermes-status.sh`: read-only status and drift report.
+- `references/ai.hermes.dashboard.plist`: the live hand-written dashboard agent (2026-10-31).
+- `references/ai.hermes.gateway.plist`: the generated gateway agent, for comparison. Its PATH is the installer's shell PATH, edited for drift.
+- Hermes source: `~/.hermes/hermes-agent/hermes_cli/gateway_launchd.py` (install and reload), `gateway/status.py` (`gateway_state.json` merge logic) and `hermes_cli/AGENTS.md` (supervised-restart rules).
+- Related: [[hermes-tmux-stack]] (central host), [[hermes-lmstudio-provider]], [[hermes-desktop-mtls-dmg]], [[macos-local-network-privacy]].
