@@ -1,0 +1,24 @@
+# One container, one multiplexing gateway serving every profile.
+services:
+  agent:
+    build: .
+    image: PROJECT:dev
+    container_name: PROJECT
+    restart: unless-stopped
+    command: ["gateway", "run"]
+    environment:
+      - TZ=Etc/UTC                       # set your own; cron schedules follow it
+      - HOME=/opt/data
+      - HERMES_CRON_SCRIPT_TIMEOUT=300   # explicit ceiling for cron scripts
+      # write_file and patch hard-fail outside this. List every writable mount.
+      - HERMES_WRITE_SAFE_ROOT=/opt/data:/opt/project-data
+    # Optional dashboard: bootstrap.sh explains the contents of this file.
+    env_file:
+      - path: ./hermes-home/dashboard.env
+        required: false
+    ports:
+      - "127.0.0.1:9119:9119"            # change the host port if 9119 is taken
+    volumes:
+      - ./hermes-home:/opt/data
+      - ./data:/opt/project-data
+    mem_limit: 4g
