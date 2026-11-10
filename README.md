@@ -38,6 +38,7 @@ On a machine without `just`: `npx skills add colindomoney/skills`.
 | `context-portfolio-interview` | meta | live | meta, context, nlw | Interview the user to build one file of their personal context portfolio (identity, role-and-responsibilities, current-projects, team-and-relationships, tools-and-systems, communication-style, goals-and-priorities, preferences-and-constraints, domain-knowledge or decision-log) following the NLW protocol, then write portfolio/<name>.md |
 | `extract-pattern` | meta | live | meta, authoring | Capture a how-to pattern that was just explained in conversation, or that lives in a repo, as a new reusable Agent Skill in the skills repo |
 | `research-crawl4ai-macos-keychain` | research | live | research, crawl4ai, hyperresearch, macos, keychain | Stop hyperresearch / Crawl4AI fetches from triggering repeated macOS keychain prompts ("Google Chrome for Testing wants to use your confidential information stored in Chromium Safe Storage") and ":9222" CDP connection errors |
+| `website-security-hardening` | website | live | website, security-headers, csp, hsts, traefik, astro, security.txt, tls, privacy | Harden one public website in phases, from inventory to verification from outside, so it sends a full security header set (HSTS ramp, report-only then enforced CSP, Permissions-Policy, COOP and CORP) and serves security.txt and robots.txt, with no third-party loads before interaction |
 <!-- /skills-table -->
 
 `just list --tag traefik`, `just list --group homelab`, `just skeletons`. This table is generated: `just readme`.

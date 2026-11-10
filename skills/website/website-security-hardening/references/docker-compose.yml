@@ -1,0 +1,89 @@
+services:
+  colindomoney:
+    # Tagged per commit by scripts/deploy.sh; `latest` is the last healthy deploy.
+    image: colindomoney.com:${IMAGE_TAG:-latest}
+    container_name: colindomoney
+    build: .
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4321/"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+    env_file: .env
+    volumes:
+      - db_data:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.colindomoney.loadbalancer.server.port=4321"
+
+      # ── Security headers (every router) ─────────────────────────────────
+      # HSTS ramp: 300 -> 604800 -> 2592000 -> 31536000. Never add preload.
+      # Traefik sends Strict-Transport-Security on https requests only.
+      - "traefik.http.middlewares.colindomoney-headers.headers.stsSeconds=300"
+      - "traefik.http.middlewares.colindomoney-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.colindomoney-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.colindomoney-headers.headers.frameDeny=true"
+      - "traefik.http.middlewares.colindomoney-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
+      - "traefik.http.middlewares.colindomoney-headers.headers.permissionsPolicy=accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), browsing-topics=(), interest-cohort=()"
+      - "traefik.http.middlewares.colindomoney-headers.headers.customResponseHeaders.Cross-Origin-Opener-Policy=same-origin"
+      - "traefik.http.middlewares.colindomoney-headers.headers.customResponseHeaders.X-Permitted-Cross-Domain-Policies=none"
+      # Cross-Origin-Resource-Policy: images may be embedded elsewhere (newsletters)
+      - "traefik.http.middlewares.colindomoney-corp-same.headers.customResponseHeaders.Cross-Origin-Resource-Policy=same-origin"
+      - "traefik.http.middlewares.colindomoney-corp-cross.headers.customResponseHeaders.Cross-Origin-Resource-Policy=cross-origin"
+      # CSP for HTML: report-only until a full crawl shows zero violations
+      - "traefik.http.middlewares.colindomoney-csp.headers.contentSecurityPolicyReportOnly=default-src 'none'; script-src 'self' https://challenges.cloudflare.com https://analytics.domoney.online; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://analytics.domoney.online; frame-src https://challenges.cloudflare.com; form-action 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; upgrade-insecure-requests"
+      # API: JSON only, so a locked-down CSP is enforced from day one
+      - "traefik.http.middlewares.colindomoney-api.headers.contentSecurityPolicy=default-src 'none'; frame-ancestors 'none'"
+      - "traefik.http.middlewares.colindomoney-api.headers.customResponseHeaders.Cache-Control=no-store"
+
+      # ── Redirects ───────────────────────────────────────────────────────
+      - "traefik.http.middlewares.colindomoney-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.colindomoney-https-redirect.redirectscheme.permanent=true"
+      - "traefik.http.middlewares.colindomoney-www-redirect.redirectregex.regex=^https?://www\\.colindomoney\\.com/(.*)"
+      - "traefik.http.middlewares.colindomoney-www-redirect.redirectregex.replacement=https://colindomoney.com/$${1}"
+      - "traefik.http.middlewares.colindomoney-www-redirect.redirectregex.permanent=true"
+
+      # ── Routers ─────────────────────────────────────────────────────────
+      # HTTPS: site pages
+      - "traefik.http.routers.colindomoney.rule=Host(`colindomoney.com`)"
+      - "traefik.http.routers.colindomoney.entrypoints=websecure"
+      - "traefik.http.routers.colindomoney.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.colindomoney.tls.domains[0].main=colindomoney.com"
+      - "traefik.http.routers.colindomoney.service=colindomoney"
+      - "traefik.http.routers.colindomoney.middlewares=colindomoney-headers,colindomoney-corp-same,colindomoney-csp"
+      # HTTPS: API routes
+      - "traefik.http.routers.colindomoney-api.rule=Host(`colindomoney.com`) && PathPrefix(`/api/`)"
+      - "traefik.http.routers.colindomoney-api.priority=100"
+      - "traefik.http.routers.colindomoney-api.entrypoints=websecure"
+      - "traefik.http.routers.colindomoney-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.colindomoney-api.service=colindomoney"
+      - "traefik.http.routers.colindomoney-api.middlewares=colindomoney-headers,colindomoney-corp-same,colindomoney-api"
+      # HTTPS: image files, embeddable from other origins
+      - "traefik.http.routers.colindomoney-img.rule=Host(`colindomoney.com`) && PathRegexp(`\\.(png|jpe?g|webp|avif|gif|svg|ico)$$`)"
+      - "traefik.http.routers.colindomoney-img.priority=90"
+      - "traefik.http.routers.colindomoney-img.entrypoints=websecure"
+      - "traefik.http.routers.colindomoney-img.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.colindomoney-img.service=colindomoney"
+      - "traefik.http.routers.colindomoney-img.middlewares=colindomoney-headers,colindomoney-corp-cross,colindomoney-csp"
+      # HTTP apex -> https apex
+      - "traefik.http.routers.colindomoney-http.rule=Host(`colindomoney.com`)"
+      - "traefik.http.routers.colindomoney-http.entrypoints=web"
+      - "traefik.http.routers.colindomoney-http.service=colindomoney"
+      - "traefik.http.routers.colindomoney-http.middlewares=colindomoney-headers,colindomoney-https-redirect"
+      # HTTPS www -> https apex
+      - "traefik.http.routers.colindomoney-www.rule=Host(`www.colindomoney.com`)"
+      - "traefik.http.routers.colindomoney-www.entrypoints=websecure"
+      - "traefik.http.routers.colindomoney-www.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.colindomoney-www.tls.domains[0].main=www.colindomoney.com"
+      - "traefik.http.routers.colindomoney-www.service=colindomoney"
+      - "traefik.http.routers.colindomoney-www.middlewares=colindomoney-headers,colindomoney-www-redirect"
+      # HTTP www -> https www (same host first, so www also receives HSTS)
+      - "traefik.http.routers.colindomoney-www-http.rule=Host(`www.colindomoney.com`)"
+      - "traefik.http.routers.colindomoney-www-http.entrypoints=web"
+      - "traefik.http.routers.colindomoney-www-http.service=colindomoney"
+      - "traefik.http.routers.colindomoney-www-http.middlewares=colindomoney-headers,colindomoney-https-redirect"
+
+volumes:
+  db_data:
