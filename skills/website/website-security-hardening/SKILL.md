@@ -32,12 +32,12 @@ Real files from colindomoney.com (PR #47, live 2026-11-10), in `references/`:
 ## Steps
 
 1. **Inventory** (zoned, `dig`, curl): every hostname, proxied or not, what answers on 80/443, final URL. Check CNAME targets (incl. DKIM) are claimed. Stop and report.
-2. **Discover the deploy** with evidence: compose labels, Dockerfile `CMD`, CI workflow `runs-on`, the host's etckeeper repo for the proxy's static config. Read the Traefik API (`/api/http/routers`, `/api/http/middlewares` on the LAN entrypoint) for neighbours and existing header middlewares. Probe bare IP, unknown `Host` and unknown SNI. Stop and report.
+2. **Discover the deploy** with evidence: compose labels, Dockerfile `CMD`, CI workflow `runs-on`, the host's etckeeper repo for the proxy's static config. **Find where the site runs before touching any host**: runner label (e.g. `um790b-docker`) -> `~/.ssh/config` alias -> snoopd `get_docker_containers` on that host, confirming the container name and that its image tag is the commit on `origin/main`. If any link is missing, ask; never take an address from a skill or reference file (those are scrubbed placeholders). Then read the Traefik API (`/api/http/routers`, `/api/http/middlewares`, `/api/entrypoints`) at `http://<host>:8080`, using the host found above, for neighbours, existing header middlewares and the Traefik version. Probe bare IP, unknown `Host` and unknown SNI. Stop and report.
 3. **Baseline** with `scripts/header_grid.py`, `scripts/site_checks.py`, `scripts/crawl.py` and nmap `ssl-enum-ciphers`. Grep the source for every third-party origin the crawl saw and cite file:line. Stop with findings plus the decisions only the owner can make (security.txt contact, CORP for images, SRI exceptions, www hop count, indexing, analytics).
 4. **Plan**: one branch, small commits. Remove third parties first (self-host), then remove inline scripts/styles, then add headers. HSTS starts at `max-age=300`; CSP starts report-only. Write the plan, get approval.
 5. **Prove locally before the PR**: `scripts/local-traefik.sh up <repo>`, then `header_grid.py`-style curls with `--resolve` + production `Host`, then `crawl.py https://site --map 18443 --stub <analytics-host>`. Fix every violation at source. `local-traefik.sh down <repo>`.
 6. **PR** with what changed, verification, rollback (revert the merge commit; an image-only rollback keeps the new labels), the `includeSubDomains` subdomain list, accepted exceptions, merge gates (security.txt mailbox exists), and a first-minute post-merge curl.
-7. **Verify live** with all four scripts plus TLS re-test and `zoned lint`; ask before external scanners. Then propose the HSTS ramp PRs and, once the crawl is clean, the CSP enforcement PR (rename the label to `contentSecurityPolicy`).
+7. **Verify live** with all four scripts plus TLS re-test and `zoned lint`; ask before external scanners. Then, in the same session, open **one** follow-up PR that matches colindomoney.com's live values: HSTS `max-age=604800` and the CSP enforced (rename the label to `contentSecurityPolicy`) once the live crawl shows zero violations. Read colindomoney.com's live headers first (`curl -sI`), not this skill. Do not propose a multi-week ramp, later stages, reminders or calendar events: Colin does not track HSTS stages by date. Further increases happen only when he asks.
 
 ## Gotchas
 
@@ -56,7 +56,7 @@ Real files from colindomoney.com (PR #47, live 2026-11-10), in `references/`:
 - **Playwright "Executable doesn't exist"**: the Python package expects a newer browser than is cached. `scripts/pwchrome.py` launches the newest installed headless shell instead.
 - **zsh doesn't word-split `$VAR`**: curl flag lists in a variable fail ("option ... is unknown"). Use a bash script with an array.
 - **Report-only CSP noise**: every page logs that `upgrade-insecure-requests` is ignored; Turnstile's iframe logs violations of *its own* CSP (`hagen.challenges.cloudflare.com`). Neither is yours.
-- **Mozilla Observatory caps report-only sites**: CSP report-only (-25), HSTS under six months (-10), no SRI on remaining third-party scripts (-5). Expect C+ during the ramp; it rises as HSTS reaches a year and CSP is enforced. SSL Labs shows A until HSTS is at least six months, then A+.
+- **Mozilla Observatory caps report-only sites**: CSP report-only (-25), HSTS under six months (-10), no SRI on remaining third-party scripts (-5). Expect C+ at stage 1; enforcing the CSP lifts it, and the HSTS penalty stays until he chooses to go past one week. SSL Labs shows A until HSTS is at least six months, then A+.
 - **securityheaders.com returns 403 to scripted requests.** Open it in a browser if a grade is wanted.
 
 ## Verify

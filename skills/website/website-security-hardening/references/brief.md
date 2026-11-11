@@ -59,7 +59,7 @@ Per site, the exact config diff and the file it goes in. Wait for approval.
 
 ### Target headers on every https response (all status codes, all paths)
 
-- `Strict-Transport-Security`: ramp `max-age=300` -> `604800` -> `2592000` -> `31536000`. `includeSubDomains` only once every subdomain serves valid https (list them in the PR). No `preload`. Never over plain http.
+- `Strict-Transport-Security`: `max-age=300` in the first PR, then `604800` (with CSP enforcement) in one follow-up PR the same session once live checks pass. Stop there; go higher only when the owner asks. No scheduled ramp stages or reminders. `includeSubDomains` only once every subdomain serves valid https (list them in the PR). No `preload`. Never over plain http.
 - `X-Content-Type-Options: nosniff` (confirm every asset has a correct `Content-Type`).
 - `X-Frame-Options: DENY` plus `frame-ancestors 'none'` (SAMEORIGIN or a list only with evidence of legitimate framing).
 - `Referrer-Policy: strict-origin-when-cross-origin`.
