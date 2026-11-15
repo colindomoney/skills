@@ -38,6 +38,7 @@ HOME = os.path.expanduser("~")
 AGENT_LOGS = sorted(glob.glob(f"{HOME}/.hermes/logs/agent.log*"))
 VERBOSE = "--verbose" in sys.argv
 
+CONTAINER_STARTED: datetime | None = None
 problems: list[str] = []
 notes: list[str] = []
 
@@ -91,6 +92,11 @@ def check_container() -> None:
         problems.append(f"Cannot inspect container {CONTAINER} ({type(e).__name__}: {e})")
         return
     state, host = info["State"], info["HostConfig"]
+    global CONTAINER_STARTED
+    try:  # Docker reports UTC with nanoseconds; agent.log uses local time
+        CONTAINER_STARTED = datetime.fromisoformat(state["StartedAt"][:26].rstrip("Z") + "+00:00").astimezone().replace(tzinfo=None)
+    except (KeyError, ValueError):
+        CONTAINER_STARTED = None
     env = dict(v.split("=", 1) for v in info["Config"].get("Env", []) if "=" in v)
     if state.get("Status") != "running" or state.get("Restarting"):
         problems.append(f"Container {CONTAINER} is {state.get('Status')} (restarting={state.get('Restarting')})")
@@ -153,7 +159,12 @@ def check_queue() -> None:
 
 
 def check_plugin_log() -> None:
-    since = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+    # Only failures against the current server instance count: anything before the container
+    # last started belongs to an incident that a recreate/restart has already dealt with.
+    since_dt = datetime.now() - timedelta(hours=24)
+    if CONTAINER_STARTED and CONTAINER_STARTED > since_dt:
+        since_dt = CONTAINER_STARTED
+    since = since_dt.strftime("%Y-%m-%d %H:%M:%S")
     pat = re.compile(r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d).*Hindsight (retain failed|flush-on-shutdown failed|writer did not stop): ?(.*)")
     hits: list[str] = []
     for path in AGENT_LOGS:
@@ -166,8 +177,8 @@ def check_plugin_log() -> None:
         except OSError:
             continue
     if hits:
-        problems.append(f"{len(hits)} plugin retain failure(s) in the last 24h, latest: {sorted(hits)[-1]}")
-    notes.append(f"plugin retain failures 24h: {len(hits)}")
+        problems.append(f"{len(hits)} plugin retain failure(s) since {since}, latest: {sorted(hits)[-1]}")
+    notes.append(f"plugin retain failures since {since}: {len(hits)}")
 
 
 def main() -> int:
