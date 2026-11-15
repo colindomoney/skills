@@ -37,6 +37,7 @@ Scripts in `scripts/`:
 - `hindsight-health.sh`: read-only. Shows server version against the client version, bank stats, ops by status, image, shm and worker ID. Run it first, every time.
 - `hindsight-pg.sh dump|sql`: pg_dump or psql inside the container, with credentials read from pg0's `instance.json`.
 - `hindsight-reboot-recover.sh`: takes a cold snapshot, removes 0-byte pg0 state files, then recreates the container.
+- `hindsight_selftest.py`: the daily self-test that runs as a Hermes cron job (see Monitor). It uses only the standard library and is silent when every check passes.
 
 ## Steps
 
@@ -63,6 +64,14 @@ Scripts in `scripts/`:
 3. Check that `docker logs` shows `PostgreSQL started` and that `total_nodes` matches the previous figure.
 4. Re-run the nightly backup (`~/.hermes/scripts/hermes-maintenance.sh`) so backup-alerter's `hermes_hindsight` check clears.
 
+### Monitor: daily self-test with a Telegram alert
+
+1. Copy `scripts/hindsight_selftest.py` to `~/.hermes/scripts/`, then check it with `python3 ~/.hermes/scripts/hindsight_selftest.py --verbose`.
+2. Create the job: `hermes cron create "30 8 * * *" --name "Daily Hindsight memory self-test" --script hindsight_selftest.py --no-agent --deliver telegram`. In no-agent mode the script's stdout is delivered as the message, and empty stdout means nothing is sent.
+3. Prove delivery by running `hermes cron run <job-id>` while a check is failing. The log shows `delivered to telegram:<chat>` when it works, and `empty stdout — silent run` when everything passed.
+4. The checks are: server version matches the client; the container is running with no crash loop, shm of 1g or more and a fixed worker ID; a retain and recall of a nonce round trip in the throwaway bank `hermes-selftest`, which is deleted afterwards; no ops stuck in `processing` for more than 1 hour; `failed_consolidation` is 0; and there are no plugin `retain failed` or `flush-on-shutdown failed` lines in `agent.log` in the last 24 hours.
+5. Don't alert on "no new memories". Cron runs never auto-retain (the plugin's `retain_cron` is off by default), so a quiet day with no chats legitimately writes nothing.
+
 ### Failed consolidations
 
 1. `failed_consolidation` counts memory units that ran out of LLM retries, not operations. Find them with `select document_id, count(*) from memory_units where consolidation_failed_at is not null group by 1;`.
@@ -81,6 +90,7 @@ Scripts in `scripts/`:
 - **gpt-oss-20b is unreliable at consolidation JSON.** Groq returns 400 `json_validate_failed` with an empty `failed_generation`, many retries per batch, and some batches never succeed. That is why consolidation alone runs on gpt-oss-120b. Provider and key fall back to the main LLM settings. Don't change models without the user's OK.
 - **Pulling images over SSH can fail on the keychain** (`keychain cannot be accessed`). For helper containers, reuse the local Hindsight image (`--entrypoint sh -u 0`) rather than pulling alpine.
 - **Before deleting bank data,** take a pg_dump and a cold volume tarball. Neither is pruned automatically, so delete them once the user is satisfied.
+- **`recall failed: Server disconnected` about 5 s after a cron job completes is harmless.** At session end the plugin starts a background prefetch recall, then `shutdown()` joins it for only 5 s (`_join_prefetch(5.0)`) and closes the client while it's still in flight. The result would have been discarded anyway. Don't alert on it. Retain failures are the real signal.
 - **Don't use `docker exec` against a crash-looping container.** It races the restarts.
 
 ## Verify
