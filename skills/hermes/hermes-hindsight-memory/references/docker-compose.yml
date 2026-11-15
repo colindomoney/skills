@@ -1,0 +1,32 @@
+services:
+  hindsight:
+    # Pinned: keep in step with hindsight_client in the Hermes venv. `:latest` sat
+    # at 0.7.1 from May to Nov 2026 against a 0.10.3 client and every retain failed.
+    image: ghcr.io/vectorize-io/hindsight:0.10.3
+    # Docker's 64 MB default /dev/shm made embedded Postgres fail with
+    # "could not resize shared memory segment ... No space left on device".
+    shm_size: 1g
+    ports:
+      # Loopback only: used solely by local Hermes (http://localhost:8888, see
+      # ~/.hermes/hindsight/config.json). A bare "8888:8888" publishes on every
+      # interface incl. the public NIC en9; it was internet-reachable on 2026-10-14
+      # when a macOS update silently dropped the pf lockdown.
+      - "127.0.0.1:8888:8888"   # API
+      - "127.0.0.1:9999:9999"   # UI
+    environment:
+      HINDSIGHT_API_LLM_PROVIDER: ${HINDSIGHT_LLM_PROVIDER}
+      HINDSIGHT_API_LLM_API_KEY: ${HINDSIGHT_LLM_API_KEY}
+      HINDSIGHT_API_LLM_MODEL: ${HINDSIGHT_LLM_MODEL}
+      # Fixed, not the default container hostname: a worker only reclaims its own
+      # in-flight tasks, so a recreate otherwise orphans them in "processing" forever.
+      HINDSIGHT_API_WORKER_ID: hindsight
+      # Consolidation only: gpt-oss-20b often fails Groq's JSON validation here
+      # (json_validate_failed, empty generation). Provider and key fall back to the above.
+      HINDSIGHT_API_CONSOLIDATION_LLM_MODEL: openai/gpt-oss-120b
+      HINDSIGHT_API_RETAIN_MAX_COMPLETION_TOKENS: ${HINDSIGHT_RETAIN_MAX_COMPLETION_TOKENS}
+    volumes:
+      - hindsight_data:/home/hindsight/.pg0
+    restart: unless-stopped
+
+volumes:
+  hindsight_data:
